@@ -1,0 +1,50 @@
+#!/bin/sh
+#####################################
+# Some stuff for prettifying output #
+#####################################
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+#############
+# Functions #
+#############
+function checkForEquivalentGradleFile() {
+    gradle_file="${1}build.gradle"
+    if [ -e ${gradle_file} ]; then
+        lineChange="${*:2}"
+        name=$(echo ${lineChange}|sed -e 's/^.* name="//' -e 's/".*$//')
+        if [ $(git diff --cached -- ${gradle_file}|grep "name:[^']*'${name}'"|wc -l) -le 0 ]; then
+            org=$(echo ${lineChange}|sed -e 's/^.* org="//' -e 's/".*$//')
+            rev=$(echo ${lineChange}|sed -e 's/^.* rev="//' -e 's/".*$//')
+            expectedVersion=$(echo ${rev}|sed -e 's/baseline\.//' -e 's/\(\.[a-z]\)/\U\1/g' -e 's/\.//g' -e 's/[${}]//g')
+            conf=$(echo ${lineChange}|sed -e 's/^.* conf="//' -e 's/".*$//')
+            printf "Cannot find entry in\n\t${BLUE}${gradle_file}${NC}\nfor\n\t${BLUE}${1}ivy.xml${NC}\n"
+            printf "Expected entry similar to:\n"
+            printf "${GREEN}compile group:'${org}', name:'${name}', version:${expectedVersion}, configuration: '${conf}', transitive: true${NC}\n"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+#######################################################
+# Ensure update of gradle if updating an jom ivy file #
+#######################################################
+OIFS=$IFS
+IFS=$'\n'
+jom_ivy_files=($(git diff --cached --name-only -- '*/jom-*/ivy.xml'))
+misses=0
+for jom_ivy_file in ${jom_ivy_files[@]}; do
+    added_deps=($(git diff --cached -- ${jom_ivy_file}|grep ^+.*dependency))
+    for added_line in ${added_deps[@]}; do
+        if checkForEquivalentGradleFile ${jom_ivy_file%ivy.xml} ${added_line} ; then
+            misses=$((misses+1))
+        fi
+    done
+done
+IFS=$OIFS
+if [ ${misses} -gt 0 ]; then
+    exit 1;
+fi
