@@ -59,7 +59,4 @@
     if [ ${misses} -gt 0 ]; then
         exit 1;
     fi
-      --name-only ..txt--name-only --name-only --name-only --name-only txtchanged
-            echo $(git diff --cached -- ${gradle_file}|grep "name:[^']*'${name}'")
-            echo $(git diff --cached -- ${gradle_file}|grep "name:[^']*'${name}'")
   #+END_SRC
